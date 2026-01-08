@@ -2,7 +2,9 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -193,30 +195,210 @@ func (a *Agent) truncateLogs(logs string, maxChars int) string {
 }
 
 func (a *Agent) parseAnalysisResponse(req AnalysisRequest, podInfo *collectors.PodInfo, analysisText string) *models.AnalysisResult {
-	// For now, return a basic structure
-	// TODO: Properly parse JSON response from LLM
-	return &models.AnalysisResult{
+	// Try to extract JSON from the response
+	analysis := a.extractAndParseJSON(analysisText)
+
+	// Build the complete result
+	result := &models.AnalysisResult{
 		Alert: models.AlertSummary{
-			Name:      "Alert",
+			Name:      "PodIncident",
 			Namespace: req.Namespace,
 			Pod:       req.PodName,
 			StartedAt: time.Now().Add(-req.Lookback),
 		},
-		Analysis: models.Analysis{
-			RootCause:  "Analysis in progress",
-			Confidence: "medium",
-			Reasoning:  analysisText,
-			Timeline:   []models.TimelineEvent{},
-			Evidence: models.Evidence{
-				Logs:   []models.LogEntry{},
-				Events: []models.EventEntry{},
-			},
-			Recommendations: []models.Recommendation{},
-		},
+		Analysis: analysis,
 		CollectedData: models.CollectedData{
 			LogLines:    len(podInfo.Logs),
 			EventsCount: len(podInfo.Events),
 			TimeRange:   req.Lookback.String(),
 		},
 	}
+
+	// If parsing failed, include the raw text in reasoning
+	if analysis.RootCause == "" && analysis.Reasoning == "" {
+		result.Analysis.Reasoning = analysisText
+		result.Analysis.RootCause = "Unable to parse LLM response"
+		result.Analysis.Confidence = "unknown"
+	}
+
+	return result
+}
+
+func (a *Agent) extractAndParseJSON(text string) models.Analysis {
+	// Try to find JSON in the text
+	jsonStr := a.extractJSON(text)
+	if jsonStr == "" {
+		a.logger.Warn("no JSON found in LLM response, using raw text")
+		return models.Analysis{
+			Reasoning: text,
+		}
+	}
+
+	// Parse the JSON
+	var response struct {
+		RootCause   string `json:"root_cause"`
+		Confidence  string `json:"confidence"`
+		Reasoning   string `json:"reasoning"`
+		Timeline    []struct {
+			Timestamp string `json:"timestamp"`
+			Event     string `json:"event"`
+			Details   string `json:"details"`
+		} `json:"timeline"`
+		Evidence struct {
+			Logs []struct {
+				Timestamp string `json:"timestamp"`
+				Line      string `json:"line"`
+				Container string `json:"container,omitempty"`
+			} `json:"logs"`
+			Events []struct {
+				Type      string `json:"type"`
+				Reason    string `json:"reason"`
+				Message   string `json:"message"`
+				Timestamp string `json:"timestamp,omitempty"`
+			} `json:"events"`
+		} `json:"evidence"`
+		Recommendations []struct {
+			Priority string `json:"priority"`
+			Action   string `json:"action"`
+			Details  string `json:"details,omitempty"`
+			Command  string `json:"command,omitempty"`
+		} `json:"recommendations"`
+	}
+
+	if err := json.Unmarshal([]byte(jsonStr), &response); err != nil {
+		a.logger.Warn("failed to parse JSON from LLM response",
+			zap.Error(err),
+			zap.String("json", jsonStr[:min(200, len(jsonStr))]),
+		)
+		return models.Analysis{
+			Reasoning: text,
+		}
+	}
+
+	// Convert to models.Analysis
+	analysis := models.Analysis{
+		RootCause:       response.RootCause,
+		Confidence:      response.Confidence,
+		Reasoning:       response.Reasoning,
+		Timeline:        make([]models.TimelineEvent, 0),
+		Evidence:        models.Evidence{Logs: []models.LogEntry{}, Events: []models.EventEntry{}},
+		Recommendations: make([]models.Recommendation, 0),
+	}
+
+	// Parse timeline
+	for _, t := range response.Timeline {
+		timestamp := a.parseTimestamp(t.Timestamp)
+		analysis.Timeline = append(analysis.Timeline, models.TimelineEvent{
+			Timestamp: timestamp,
+			Event:     t.Event,
+			Details:   t.Details,
+		})
+	}
+
+	// Parse evidence logs
+	for _, l := range response.Evidence.Logs {
+		timestamp := a.parseTimestamp(l.Timestamp)
+		analysis.Evidence.Logs = append(analysis.Evidence.Logs, models.LogEntry{
+			Timestamp: timestamp,
+			Line:      l.Line,
+			Container: l.Container,
+		})
+	}
+
+	// Parse evidence events
+	for _, e := range response.Evidence.Events {
+		timestamp := a.parseTimestamp(e.Timestamp)
+		analysis.Evidence.Events = append(analysis.Evidence.Events, models.EventEntry{
+			Type:      e.Type,
+			Reason:    e.Reason,
+			Message:   e.Message,
+			Timestamp: timestamp,
+		})
+	}
+
+	// Parse recommendations
+	for _, r := range response.Recommendations {
+		analysis.Recommendations = append(analysis.Recommendations, models.Recommendation{
+			Priority: r.Priority,
+			Action:   r.Action,
+			Details:  r.Details,
+			Command:  r.Command,
+		})
+	}
+
+	return analysis
+}
+
+func (a *Agent) extractJSON(text string) string {
+	// Try to find JSON object in the text
+	startIdx := strings.Index(text, "{")
+	if startIdx == -1 {
+		return ""
+	}
+
+	// Find the matching closing brace
+	braceCount := 0
+	inString := false
+	escaped := false
+
+	for i := startIdx; i < len(text); i++ {
+		char := text[i]
+
+		if escaped {
+			escaped = false
+			continue
+		}
+
+		if char == '\\' {
+			escaped = true
+			continue
+		}
+
+		if char == '"' {
+			inString = !inString
+			continue
+		}
+
+		if inString {
+			continue
+		}
+
+		if char == '{' {
+			braceCount++
+		} else if char == '}' {
+			braceCount--
+			if braceCount == 0 {
+				return text[startIdx : i+1]
+			}
+		}
+	}
+
+	return ""
+}
+
+func (a *Agent) parseTimestamp(ts string) time.Time {
+	// Try multiple timestamp formats
+	formats := []string{
+		time.RFC3339,
+		time.RFC3339Nano,
+		"2006-01-02T15:04:05",
+		"2006-01-02 15:04:05",
+		"15:04:05",
+	}
+
+	for _, format := range formats {
+		if t, err := time.Parse(format, ts); err == nil {
+			return t
+		}
+	}
+
+	// If we can't parse it, return current time
+	return time.Now()
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
