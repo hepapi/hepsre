@@ -12,6 +12,7 @@ import (
 
 	"github.com/emirozbir/micro-sre/internal/agent"
 	"github.com/emirozbir/micro-sre/internal/config"
+	"github.com/emirozbir/micro-sre/internal/formatter"
 )
 
 func main() {
@@ -19,6 +20,8 @@ func main() {
 	pod := flag.String("pod", "", "Pod name")
 	lookback := flag.String("lookback", "1h", "Time range to look back (e.g., 1h, 30m)")
 	configPath := flag.String("config", "", "Path to config file")
+	outputFormat := flag.String("format", "pretty", "Output format: 'pretty' or 'json'")
+	noColor := flag.Bool("no-color", false, "Disable colored output")
 
 	flag.Parse()
 
@@ -52,7 +55,7 @@ func main() {
 	}
 
 	// Run analysis
-	fmt.Printf("Analyzing pod %s/%s (lookback: %s)...\n", *namespace, *pod, *lookback)
+	fmt.Printf("🔍 Analyzing pod %s/%s (lookback: %s)...\n", *namespace, *pod, *lookback)
 
 	ctx := context.Background()
 	result, err := agentInstance.AnalyzeAlert(ctx, agent.AnalysisRequest{
@@ -65,12 +68,18 @@ func main() {
 		logger.Fatal("Analysis failed", zap.Error(err))
 	}
 
-	// Pretty print result
-	output, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		logger.Fatal("Failed to marshal result", zap.Error(err))
+	// Output result
+	if *outputFormat == "json" {
+		// JSON output
+		output, err := json.MarshalIndent(result, "", "  ")
+		if err != nil {
+			logger.Fatal("Failed to marshal result", zap.Error(err))
+		}
+		fmt.Println(string(output))
+	} else {
+		// Pretty formatted output
+		outputFormatter := formatter.NewFormatter(!*noColor)
+		formattedOutput := outputFormatter.FormatAnalysisResult(result)
+		fmt.Println(formattedOutput)
 	}
-
-	fmt.Println("\n=== Analysis Result ===")
-	fmt.Println(string(output))
 }
