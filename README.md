@@ -99,9 +99,9 @@ curl http://localhost:8080/health
 curl -X POST http://localhost:8080/api/v1/analyze/pod \
   -H "Content-Type: application/json" \
   -d '{
-    "namespace": "production",
-    "pod": "api-server-xyz",
-    "lookback": "2h"
+    "namespace": "default",
+    "pod": "oom-killer-demo",
+    "lookback": "1h"
   }'
 ```
 
