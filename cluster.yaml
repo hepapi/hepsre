@@ -1,0 +1,36 @@
+# 1 control-plane + 2 workers, maps host 80/443 for ingress
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: kind-128
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.28.13
+    kubeadmConfigPatches:
+      - |
+        kind: ClusterConfiguration
+        metadata:
+          name: config
+        scheduler: {}
+        controllerManager: {}
+        apiServer:
+          extraArgs:
+            "service-account-issuer": "kubernetes.default.svc"
+            "service-account-jwks-uri": "https://kubernetes.default.svc/openid/v1/jwks"
+        networking:
+          dnsDomain: cluster.local
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP
+  - role: worker
+    image: kindest/node:v1.28.13
+  - role: worker
+    image: kindest/node:v1.28.13
+networking:
+  disableDefaultCNI: false   # use kindnet (simple & fine)
+  kubeProxyMode: "iptables"  # or "ipvs" if you prefer
+
+

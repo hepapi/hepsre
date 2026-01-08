@@ -1,0 +1,33 @@
+alertmanager:
+  url: "http://localhost:9093"
+  poll_interval: "30s"
+
+kubernetes:
+  kubeconfig: ""  # empty for in-cluster config
+  context: ""     # optional, use specific context
+
+log_collection:
+  default_lookback: "1h"
+  max_lookback: "24h"
+  tail_lines: 1000
+  include_previous: true  # include logs from previous terminated container
+
+event_collection:
+  default_lookback: "1h"
+  max_lookback: "24h"
+  event_types: ["Warning", "Normal"]
+
+llm:
+  provider: "anthropic"  # anthropic or openai
+  api_key: "${ANTHROPIC_API_KEY}"
+  model: "claude-sonnet-4-5"
+  max_tokens: 4096
+  temperature: 0.2
+
+agent:
+  max_parallel_fetches: 5
+  analysis_timeout: "2m"
+
+server:
+  port: 8080
+  host: "0.0.0.0"

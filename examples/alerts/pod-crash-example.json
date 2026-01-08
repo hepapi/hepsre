@@ -1,0 +1,6 @@
+{
+  "alert_id": "abc123def456",
+  "namespace": "production",
+  "pod": "api-server-7d9f8c-xyz",
+  "lookback": "2h"
+}
