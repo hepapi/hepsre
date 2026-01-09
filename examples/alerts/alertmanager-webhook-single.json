@@ -1,0 +1,41 @@
+{
+  "version": "4",
+  "groupKey": "{}:{alertname=\"PodOOMKilled\"}",
+  "truncatedAlerts": 0,
+  "status": "firing",
+  "receiver": "micro-sre-webhook",
+  "groupLabels": {
+    "alertname": "PodOOMKilled"
+  },
+  "commonLabels": {
+    "alertname": "PodOOMKilled",
+    "severity": "critical"
+  },
+  "commonAnnotations": {
+    "summary": "Pod has been OOM killed"
+  },
+  "externalURL": "http://alertmanager:9093",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "PodOOMKilled",
+        "namespace": "production",
+        "pod": "api-server-7d9f8c-xyz",
+        "severity": "critical",
+        "container": "api",
+        "instance": "10.0.1.20:9090",
+        "job": "kubernetes-pods"
+      },
+      "annotations": {
+        "description": "Pod api-server-7d9f8c-xyz in namespace production was killed due to out of memory (OOM)",
+        "summary": "Pod has been OOM killed",
+        "runbook_url": "https://runbooks.example.com/PodOOMKilled"
+      },
+      "startsAt": "2026-01-09T10:30:00Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "generatorURL": "http://prometheus:9090/graph?g0.expr=kube_pod_container_status_terminated_reason%7Breason%3D%22OOMKilled%22%2Cnamespace%3D%22production%22%2Cpod%3D%22api-server-7d9f8c-xyz%22%7D+%3E+0",
+      "fingerprint": "oom456killed789"
+    }
+  ]
+}
