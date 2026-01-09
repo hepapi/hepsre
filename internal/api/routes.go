@@ -15,6 +15,7 @@ func SetupRoutes(handler *Handler) *gin.Engine {
 	{
 		v1.POST("/analyze/alert", handler.AnalyzeAlert)
 		v1.POST("/analyze/pod", handler.AnalyzePod)
+		v1.POST("/webhook/alertmanager", handler.ReceiveAlertManagerWebhook)
 	}
 
 	return r

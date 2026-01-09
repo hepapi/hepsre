@@ -1,0 +1,23 @@
+{
+  "version": "4",
+  "groupKey": "{}:{alertname=\"AlertName\"}",
+  "status": "firing",
+  "receiver": "micro-sre-webhook",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "PodNotReady",
+        "namespace": "default",
+        "pod": "nginx-pod",
+        "severity": "critical"
+      },
+      "annotations": {
+        "description": "Pod is in not ready",
+        "summary": "Pod continuously failing"
+      },
+      "startsAt": "2026-01-09T10:00:00Z",
+      "fingerprint": "asdasdasad"
+    }
+  ]
+}
