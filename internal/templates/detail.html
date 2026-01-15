@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis #{{.ID}} - HepSRE</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        header {
+            background: white;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .meta-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+
+        .meta-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .badges {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .badge {
+            padding: 6px 14px;
+            border-radius: 16px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .badge-severity {
+            background: #fee;
+            color: #c00;
+        }
+
+        .badge-confidence-high {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-confidence-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .badge-confidence-low {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .section {
+            background: white;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .section-content {
+            color: #555;
+            line-height: 1.7;
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 8px;
+            bottom: 8px;
+            width: 2px;
+            background: #e0e0e0;
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 20px;
+            padding-left: 10px;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -27px;
+            top: 6px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #3498db;
+            border: 2px solid white;
+            box-shadow: 0 0 0 2px #3498db;
+        }
+
+        .timeline-time {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 3px;
+        }
+
+        .timeline-event {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 3px;
+        }
+
+        .timeline-details {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .recommendation {
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #3498db;
+            background: #f8f9fa;
+        }
+
+        .recommendation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .recommendation-action {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .priority {
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .priority-high {
+            background: #fee;
+            color: #c00;
+        }
+
+        .priority-medium {
+            background: #ffeaa7;
+            color: #d63031;
+        }
+
+        .priority-low {
+            background: #dfe6e9;
+            color: #2d3436;
+        }
+
+        .recommendation-details {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .recommendation-command {
+            background: #2c3e50;
+            color: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+
+        .log-entry, .event-entry {
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            background: #f8f9fa;
+            border-left: 3px solid #3498db;
+        }
+
+        .log-time, .event-time {
+            font-size: 11px;
+            color: #999;
+            margin-bottom: 5px;
+        }
+
+        .log-line {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #2c3e50;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .event-header {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+
+        .event-type {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .event-reason {
+            color: #666;
+            font-style: italic;
+        }
+
+        .event-message {
+            font-size: 14px;
+            color: #555;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #3498db;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .no-data {
+            color: #999;
+            font-style: italic;
+            padding: 20px;
+            text-align: center;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/analyses" class="back-link">← Back to All Analyses</a>
+
+        <header>
+            <h1>{{.AlertName}}</h1>
+            <div class="meta-grid">
+                <div class="meta-item">
+                    <span class="meta-label">Namespace</span>
+                    <span class="meta-value">{{.Namespace}}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Pod</span>
+                    <span class="meta-value">{{.PodName}}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Analyzed At</span>
+                    <span class="meta-value">{{.CreatedAt.Format "2006-01-02 15:04:05"}}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Alert Started</span>
+                    <span class="meta-value">{{.AlertStartedAt.Format "2006-01-02 15:04:05"}}</span>
+                </div>
+            </div>
+            <div class="badges">
+                <span class="badge badge-severity">{{.Severity}}</span>
+                <span class="badge badge-confidence-{{.Confidence}}">Confidence: {{.Confidence}}</span>
+            </div>
+        </header>
+
+        <div class="section">
+            <h2 class="section-title">Root Cause</h2>
+            <div class="section-content">
+                {{.RootCause}}
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">Reasoning</h2>
+            <div class="section-content">
+                {{.AnalysisResult.Analysis.Reasoning}}
+            </div>
+        </div>
+
+        {{if .AnalysisResult.Analysis.Timeline}}
+        <div class="section">
+            <h2 class="section-title">Timeline of Events</h2>
+            <div class="timeline">
+                {{range .AnalysisResult.Analysis.Timeline}}
+                <div class="timeline-item">
+                    <div class="timeline-time">{{.Timestamp.Format "15:04:05"}}</div>
+                    <div class="timeline-event">{{.Event}}</div>
+                    <div class="timeline-details">{{.Details}}</div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+
+        {{if .AnalysisResult.Analysis.Recommendations}}
+        <div class="section">
+            <h2 class="section-title">Recommendations</h2>
+            {{range .AnalysisResult.Analysis.Recommendations}}
+            <div class="recommendation">
+                <div class="recommendation-header">
+                    <span class="recommendation-action">{{.Action}}</span>
+                    <span class="priority priority-{{.Priority}}">{{.Priority}}</span>
+                </div>
+                {{if .Details}}
+                <div class="recommendation-details">{{.Details}}</div>
+                {{end}}
+                {{if .Command}}
+                <div class="recommendation-command">$ {{.Command}}</div>
+                {{end}}
+            </div>
+            {{end}}
+        </div>
+        {{end}}
+
+        {{if .AnalysisResult.Analysis.Evidence.Logs}}
+        <div class="section">
+            <h2 class="section-title">Evidence - Logs</h2>
+            {{range .AnalysisResult.Analysis.Evidence.Logs}}
+            <div class="log-entry">
+                <div class="log-time">{{.Timestamp.Format "2006-01-02 15:04:05"}} {{if .Container}}| Container: {{.Container}}{{end}}</div>
+                <div class="log-line">{{.Line}}</div>
+            </div>
+            {{end}}
+        </div>
+        {{end}}
+
+        {{if .AnalysisResult.Analysis.Evidence.Events}}
+        <div class="section">
+            <h2 class="section-title">Evidence - Kubernetes Events</h2>
+            {{range .AnalysisResult.Analysis.Evidence.Events}}
+            <div class="event-entry">
+                <div class="event-time">{{.Timestamp.Format "2006-01-02 15:04:05"}}</div>
+                <div class="event-header">
+                    <span class="event-type">{{.Type}}</span>
+                    <span class="event-reason">{{.Reason}}</span>
+                </div>
+                <div class="event-message">{{.Message}}</div>
+            </div>
+            {{end}}
+        </div>
+        {{end}}
+
+        <div class="section">
+            <h2 class="section-title">Collection Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">{{.AnalysisResult.CollectedData.LogLines}}</div>
+                    <div class="stat-label">Log Lines</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{.AnalysisResult.CollectedData.EventsCount}}</div>
+                    <div class="stat-label">Events</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{.AnalysisResult.CollectedData.TimeRange}}</div>
+                    <div class="stat-label">Time Range</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

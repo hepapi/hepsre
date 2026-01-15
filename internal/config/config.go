@@ -15,6 +15,7 @@ type Config struct {
 	LLM             LLMConfig             `mapstructure:"llm"`
 	Agent           AgentConfig           `mapstructure:"agent"`
 	Server          ServerConfig          `mapstructure:"server"`
+	Database        DatabaseConfig        `mapstructure:"database"`
 }
 
 type AlertManagerConfig struct {
@@ -58,6 +59,10 @@ type ServerConfig struct {
 	Host string `mapstructure:"host"`
 }
 
+type DatabaseConfig struct {
+	Path string `mapstructure:"path"`
+}
+
 func Load(configPath string) (*Config, error) {
 	v := viper.New()
 
@@ -70,6 +75,7 @@ func Load(configPath string) (*Config, error) {
 	v.SetDefault("llm.model", "claude-sonnet-4-5")
 	v.SetDefault("llm.max_tokens", 4096)
 	v.SetDefault("llm.temperature", 0.2)
+	v.SetDefault("database.path", "./hepsre.db")
 
 	// Read from environment variables
 	v.AutomaticEnv()

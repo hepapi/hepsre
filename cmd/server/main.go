@@ -14,6 +14,7 @@ import (
 	"github.com/emirozbir/micro-sre/internal/agent"
 	"github.com/emirozbir/micro-sre/internal/api"
 	"github.com/emirozbir/micro-sre/internal/config"
+	"github.com/emirozbir/micro-sre/internal/database"
 )
 
 func main() {
@@ -42,8 +43,16 @@ func main() {
 		logger.Fatal("Failed to create agent", zap.Error(err))
 	}
 
+	// Initialize database
+	db, err := database.New(cfg.Database.Path)
+	if err != nil {
+		logger.Fatal("Failed to initialize database", zap.Error(err))
+	}
+	defer db.Close()
+	logger.Info("Database initialized", zap.String("path", cfg.Database.Path))
+
 	// Setup HTTP server
-	handler := api.NewHandler(agentInstance, logger)
+	handler := api.NewHandler(agentInstance, logger, db)
 	router := api.SetupRoutes(handler)
 
 	// Start server
