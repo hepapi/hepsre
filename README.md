@@ -228,71 +228,8 @@ make docker-run
 
 ```bash
 # Apply manifests
-kubectl apply -f k8s/
-
-# Or use the provided deployment
-kubectl apply -f - <<EOF
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: micro-sre
-  namespace: monitoring
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: micro-sre
-  template:
-    metadata:
-      labels:
-        app: micro-sre
-    spec:
-      serviceAccountName: micro-sre
-      containers:
-      - name: micro-sre
-        image: micro-sre:latest
-        ports:
-        - containerPort: 8080
-        env:
-        - name: ANTHROPIC_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: llm-credentials
-              key: api-key
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: micro-sre
-  namespace: monitoring
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: micro-sre-reader
-rules:
-- apiGroups: [""]
-  resources: ["pods", "pods/log", "events"]
-  verbs: ["get", "list"]
-- apiGroups: ["apps"]
-  resources: ["deployments"]
-  verbs: ["get", "list"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: micro-sre-reader-binding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: micro-sre-reader
-subjects:
-- kind: ServiceAccount
-  name: micro-sre
-  namespace: monitoring
-EOF
+kubectl apply -f deploy/k8s/
 ```
-
 ## Development
 
 ### Project Structure

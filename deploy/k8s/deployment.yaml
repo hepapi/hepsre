@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: micro-sre
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: micro-sre
+  template:
+    metadata:
+      labels:
+        app: micro-sre
+    spec:
+      serviceAccountName: micro-sre
+      containers:
+      - name: micro-sre
+        image: micro-sre:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: llm-credentials
+              key: api-key
