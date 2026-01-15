@@ -13,12 +13,20 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/emirozbir/micro-sre/internal/config"
+	"github.com/emirozbir/micro-sre/internal/ui"
 )
 
 type KubernetesCollector struct {
 	clientset *kubernetes.Clientset
 	config    *config.Config
+	progress  ui.ProgressReporter
 }
+
+// noOpProgress is a default no-op progress reporter
+type noOpProgress struct{}
+
+func (n *noOpProgress) Update(message string) {}
+func (n *noOpProgress) Stop()                 {}
 
 func NewKubernetesCollector(cfg *config.Config) (*KubernetesCollector, error) {
 	var k8sConfig *rest.Config
@@ -54,7 +62,13 @@ func NewKubernetesCollector(cfg *config.Config) (*KubernetesCollector, error) {
 	return &KubernetesCollector{
 		clientset: clientset,
 		config:    cfg,
+		progress:  &noOpProgress{},
 	}, nil
+}
+
+// SetProgressReporter sets the progress reporter for the collector
+func (k *KubernetesCollector) SetProgressReporter(reporter ui.ProgressReporter) {
+	k.progress = reporter
 }
 
 type PodInfo struct {
@@ -64,6 +78,7 @@ type PodInfo struct {
 }
 
 func (k *KubernetesCollector) GetPodInfo(ctx context.Context, namespace, podName string, lookback time.Duration) (*PodInfo, error) {
+	k.progress.Update(fmt.Sprintf("Fetching pod metadata for %s/%s...", namespace, podName))
 	pod, err := k.clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pod: %w", err)
@@ -89,6 +104,7 @@ func (k *KubernetesCollector) GetPodInfo(ctx context.Context, namespace, podName
 }
 
 func (k *KubernetesCollector) GetPodLogs(ctx context.Context, namespace, podName string, lookback time.Duration) (string, error) {
+	k.progress.Update(fmt.Sprintf("Fetching logs for pod %s/%s (last %s)...", namespace, podName, lookback))
 	sinceTime := metav1.NewTime(time.Now().Add(-lookback))
 
 	opts := &corev1.PodLogOptions{
@@ -114,6 +130,7 @@ func (k *KubernetesCollector) GetPodLogs(ctx context.Context, namespace, podName
 }
 
 func (k *KubernetesCollector) GetPodEvents(ctx context.Context, namespace, podName string, lookback time.Duration) ([]corev1.Event, error) {
+	k.progress.Update(fmt.Sprintf("Fetching Kubernetes events for pod %s/%s...", namespace, podName))
 	fieldSelector := fmt.Sprintf("involvedObject.name=%s,involvedObject.kind=Pod", podName)
 
 	eventList, err := k.clientset.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{

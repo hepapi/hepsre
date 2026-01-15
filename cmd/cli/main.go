@@ -13,6 +13,7 @@ import (
 	"github.com/emirozbir/micro-sre/internal/agent"
 	"github.com/emirozbir/micro-sre/internal/config"
 	"github.com/emirozbir/micro-sre/internal/formatter"
+	"github.com/emirozbir/micro-sre/internal/ui"
 )
 
 func main() {
@@ -54,15 +55,34 @@ func main() {
 		logger.Fatal("Failed to create agent", zap.Error(err))
 	}
 
-	// Run analysis
-	fmt.Printf("🔍 Analyzing pod %s/%s (lookback: %s)...\n", *namespace, *pod, *lookback)
+	// Set up progress reporting based on output format
+	var progress *ui.SpinnerProgress
+	if *outputFormat != "json" && !*noColor {
+		// Normal mode: animated spinner
+		progress = ui.NewSpinnerProgress()
+		agentInstance.SetProgressReporter(progress)
+		progress.Start("Initializing analysis...")
+	} else if *outputFormat != "json" {
+		// No-color mode: simple text
+		fmt.Printf("Analyzing pod %s/%s (lookback: %s)...\n", *namespace, *pod, *lookback)
+		agentInstance.SetProgressReporter(&agent.NoOpProgressReporter{})
+	} else {
+		// JSON mode: completely silent
+		agentInstance.SetProgressReporter(&agent.NoOpProgressReporter{})
+	}
 
+	// Run analysis
 	ctx := context.Background()
 	result, err := agentInstance.AnalyzeAlert(ctx, agent.AnalysisRequest{
 		Namespace: *namespace,
 		PodName:   *pod,
 		Lookback:  lookbackDuration,
 	})
+
+	// Ensure spinner is stopped before output
+	if progress != nil {
+		progress.Stop()
+	}
 
 	if err != nil {
 		logger.Fatal("Analysis failed", zap.Error(err))
