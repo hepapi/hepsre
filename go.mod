@@ -6,6 +6,7 @@ require (
 	github.com/anthropics/anthropic-sdk-go v0.2.0-alpha.5
 	github.com/briandowns/spinner v1.23.2
 	github.com/gin-gonic/gin v1.10.0
+	github.com/mattn/go-sqlite3 v1.14.33
 	github.com/openai/openai-go v1.12.0
 	github.com/spf13/viper v1.19.0
 	go.uber.org/zap v1.27.0

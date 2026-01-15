@@ -2,7 +2,10 @@ package api
 
 import (
 	"context"
+	"html/template"
+	"math"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -10,18 +13,31 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/emirozbir/micro-sre/internal/agent"
+	"github.com/emirozbir/micro-sre/internal/database"
 	"github.com/emirozbir/micro-sre/internal/models"
 )
 
 type Handler struct {
 	agent  *agent.Agent
 	logger *zap.Logger
+	db     *database.DB
+	tmpl   *template.Template
 }
 
-func NewHandler(agent *agent.Agent, logger *zap.Logger) *Handler {
+func NewHandler(agent *agent.Agent, logger *zap.Logger, db *database.DB) *Handler {
+	// Parse templates with helper functions
+	funcMap := template.FuncMap{
+		"add": func(a, b int) int { return a + b },
+		"sub": func(a, b int) int { return a - b },
+	}
+
+	tmpl := template.Must(template.New("").Funcs(funcMap).ParseGlob("internal/templates/*.html"))
+
 	return &Handler{
 		agent:  agent,
 		logger: logger,
+		db:     db,
+		tmpl:   tmpl,
 	}
 }
 
@@ -63,6 +79,12 @@ func (h *Handler) AnalyzeAlert(c *gin.Context) {
 		return
 	}
 
+	// Save to database
+	if _, err := h.db.SaveAnalysis(result); err != nil {
+		h.logger.Error("failed to save analysis to database", zap.Error(err))
+		// Don't fail the request if DB save fails
+	}
+
 	c.JSON(http.StatusOK, result)
 }
 
@@ -100,6 +122,12 @@ func (h *Handler) AnalyzePod(c *gin.Context) {
 		h.logger.Error("analysis failed", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	// Save to database
+	if _, err := h.db.SaveAnalysis(result); err != nil {
+		h.logger.Error("failed to save analysis to database", zap.Error(err))
+		// Don't fail the request if DB save fails
 	}
 
 	c.JSON(http.StatusOK, result)
@@ -196,6 +224,14 @@ func (h *Handler) ReceiveAlertManagerWebhook(c *gin.Context) {
 				return
 			}
 
+			// Save to database
+			if _, err := h.db.SaveAnalysis(result); err != nil {
+				h.logger.Error("failed to save analysis to database",
+					zap.String("alert_name", alertName),
+					zap.Error(err))
+				// Don't fail the analysis if DB save fails
+			}
+
 			// Add successful result
 			mu.Lock()
 			results = append(results, models.AlertAnalysisResult{
@@ -236,4 +272,77 @@ func (h *Handler) ReceiveAlertManagerWebhook(c *gin.Context) {
 
 	// Return 200 even with partial failures
 	c.JSON(http.StatusOK, response)
+}
+
+// ListAnalyses displays the HTML page with all analyses
+func (h *Handler) ListAnalyses(c *gin.Context) {
+	// Parse pagination parameters
+	page := 1
+	if pageStr := c.Query("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	perPage := 20
+	offset := (page - 1) * perPage
+
+	// Get analyses from database
+	analyses, err := h.db.ListAnalyses(perPage, offset)
+	if err != nil {
+		h.logger.Error("failed to list analyses", zap.Error(err))
+		c.String(http.StatusInternalServerError, "Failed to load analyses")
+		return
+	}
+
+	// Get total count
+	total, err := h.db.CountAnalyses()
+	if err != nil {
+		h.logger.Error("failed to count analyses", zap.Error(err))
+		c.String(http.StatusInternalServerError, "Failed to count analyses")
+		return
+	}
+
+	totalPages := int(math.Ceil(float64(total) / float64(perPage)))
+
+	// Render template
+	data := gin.H{
+		"Analyses":   analyses,
+		"Total":      total,
+		"Page":       page,
+		"TotalPages": totalPages,
+	}
+
+	if err := h.tmpl.ExecuteTemplate(c.Writer, "list.html", data); err != nil {
+		h.logger.Error("failed to render template", zap.Error(err))
+		c.String(http.StatusInternalServerError, "Failed to render page")
+	}
+}
+
+// GetAnalysis displays the HTML page for a single analysis
+func (h *Handler) GetAnalysis(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		c.String(http.StatusBadRequest, "Invalid analysis ID")
+		return
+	}
+
+	analysis, err := h.db.GetAnalysis(id)
+	if err != nil {
+		h.logger.Error("failed to get analysis", zap.Int64("id", id), zap.Error(err))
+		c.String(http.StatusInternalServerError, "Failed to load analysis")
+		return
+	}
+
+	if analysis == nil {
+		c.String(http.StatusNotFound, "Analysis not found")
+		return
+	}
+
+	// Render template
+	if err := h.tmpl.ExecuteTemplate(c.Writer, "detail.html", analysis); err != nil {
+		h.logger.Error("failed to render template", zap.Error(err))
+		c.String(http.StatusInternalServerError, "Failed to render page")
+	}
 }
