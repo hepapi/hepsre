@@ -14,6 +14,7 @@ import (
 	"github.com/emirozbir/micro-sre/internal/config"
 	"github.com/emirozbir/micro-sre/internal/llm"
 	"github.com/emirozbir/micro-sre/internal/models"
+	"github.com/emirozbir/micro-sre/internal/ui"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -23,6 +24,7 @@ type Agent struct {
 	llmClient    llm.Client
 	config       *config.Config
 	logger       *zap.Logger
+	progress     ui.ProgressReporter
 }
 
 func NewAgent(cfg *config.Config, logger *zap.Logger) (*Agent, error) {
@@ -44,7 +46,15 @@ func NewAgent(cfg *config.Config, logger *zap.Logger) (*Agent, error) {
 		llmClient:    llmClient,
 		config:       cfg,
 		logger:       logger,
+		progress:     &NoOpProgressReporter{},
 	}, nil
+}
+
+// SetProgressReporter sets the progress reporter for the agent
+func (a *Agent) SetProgressReporter(reporter ui.ProgressReporter) {
+	a.progress = reporter
+	// Also set it on the collectors
+	a.k8sCollector.SetProgressReporter(reporter)
 }
 
 type AnalysisRequest struct {
@@ -73,6 +83,8 @@ func (a *Agent) AnalyzeAlert(ctx context.Context, req AnalysisRequest) (*models.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+
+		// The collector will report its own progress for each step
 		pi, e := a.k8sCollector.GetPodInfo(ctx, req.Namespace, req.PodName, req.Lookback)
 		mu.Lock()
 		podInfo = pi
@@ -85,22 +97,29 @@ func (a *Agent) AnalyzeAlert(ctx context.Context, req AnalysisRequest) (*models.
 	wg.Wait()
 
 	if len(errors) > 0 {
+		a.progress.Stop()
 		a.logger.Error("failed to collect data", zap.Errors("errors", errors))
 		return nil, fmt.Errorf("failed to collect data: %v", errors)
 	}
 
 	// Build context for LLM
+	a.progress.Update("Building analysis context...")
 	prompt := a.buildAnalysisPrompt(req, podInfo)
 
 	// Analyze with LLM
+	a.progress.Update("Analyzing with AI (this may take 5-15 seconds)...")
 	a.logger.Info("sending data to LLM for analysis")
 	analysisText, err := a.llmClient.Analyze(ctx, prompt)
 	if err != nil {
+		a.progress.Stop()
 		return nil, fmt.Errorf("LLM analysis failed: %w", err)
 	}
 
 	// Parse the response and structure it
+	a.progress.Update("Parsing AI response...")
 	result := a.parseAnalysisResponse(req, podInfo, analysisText)
+
+	a.progress.Stop()
 
 	a.logger.Info("analysis completed",
 		zap.String("root_cause", result.Analysis.RootCause),
