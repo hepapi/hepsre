@@ -8,7 +8,7 @@ func SetupRoutes(handler *Handler) *gin.Engine {
 	r := gin.Default()
 
 	// Health check
-	r.GET("/healthzzz", handler.Health)
+	r.GET("/healthz", handler.Health)
 	r.GET("/analyses", handler.ListAnalyses)
 	r.GET("/analyses/:id", handler.GetAnalysis)
 

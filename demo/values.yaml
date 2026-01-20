@@ -1,0 +1,16 @@
+alertmanager:
+  config:
+    global: {}
+    route:
+      receiver: "hepsre-mini-webhook"
+      group_by: ["alertname", "namespace"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+    receivers:
+      - name: 'null'
+      - name: "hepsre-mini-webhook"
+        webhook_configs:
+          - url: "http://hep-sre-mini.monitoring:8080/api/v1/webhook/alertmanager"
+            send_resolved: false
+            max_alerts: 0

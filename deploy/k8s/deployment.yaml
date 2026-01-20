@@ -1,22 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: micro-sre
+  name: hep-sre-mini
   namespace: monitoring
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: micro-sre
+      app: hep-sre-mini
   template:
     metadata:
       labels:
-        app: micro-sre
+        app: hep-sre-mini
     spec:
-      serviceAccountName: micro-sre
+      serviceAccountName: hep-sre-mini
       containers:
-      - name: micro-sre
-        image: micro-sre:latest
+      - name: hep-sre-mini
+        image: docker.io/emirozbir/micro-sre:v2
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
         env:
@@ -24,4 +25,17 @@ spec:
           valueFrom:
             secretKeyRef:
               name: llm-credentials
-              key: api-key
+              key: key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hep-sre-mini
+  namespace: monitoring
+spec:
+  selector:
+    app: hep-sre-mini
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
