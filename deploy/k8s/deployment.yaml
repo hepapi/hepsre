@@ -16,7 +16,7 @@ spec:
       serviceAccountName: hep-sre-mini
       containers:
       - name: hep-sre-mini
-        image: docker.io/emirozbir/micro-sre:v2
+        image: docker.io/emirozbir/micro-sre:v3
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
