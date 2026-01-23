@@ -1,6 +1,6 @@
 module github.com/emirozbir/micro-sre
 
-go 1.22.0
+go 1.25.2
 
 require (
 	github.com/anthropics/anthropic-sdk-go v0.2.0-alpha.5
